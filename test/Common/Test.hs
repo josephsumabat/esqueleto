@@ -1701,6 +1701,26 @@ testLocking = do
         liftIO $ print res1
         asserting $ res1 `shouldBe` expected
         asserting $ res2 `shouldBe` expected
+    
+    itDb "takes the union of equal postgres table specific locks" $ do
+        let twoUpdateQuery = do
+                (p :& bp) <-
+                  Experimental.from $ table @Person
+                    `Experimental.innerJoin` table @BlogPost
+                    `Experimental.on` (\(p :& bp) -> p ^. PersonId ==. bp ^. BlogPostAuthorId)
+                EP.forUpdateOf p EP.skipLocked
+                EP.forUpdateOf bp EP.skipLocked
+            singleUpdateQuery = do
+                p <- Experimental.from $ table @Person
+                EP.forShareOf p EP.skipLocked
+                EP.forUpdateOf p EP.skipLocked
+
+        conn <- ask
+        let res1 = toText conn twoUpdateQuery
+            res2 = toText conn updateAndSharePostgresQuery
+        liftIO $ print res1
+        asserting $ res1 `shouldBe` expected
+        asserting $ res2 `shouldBe` expected
 
 
 testCountingRows :: SpecDb
